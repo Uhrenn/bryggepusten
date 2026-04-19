@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bryggepusten — Hjemmebryggeriets Dagbok</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="grain-overlay"></div>
+    <div class="app" id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-inner">
+                <div class="logo-group">
+                    <div class="hop-icon">
+                        <svg viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M24 0C24 0 8 12 8 28C8 38 14 46 24 50V64" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <path d="M24 0C24 0 40 12 40 28C40 38 34 46 24 50" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <path d="M24 12C24 12 14 20 14 30C14 36 18 40 24 43V50" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6"/>
+                            <path d="M24 12C24 12 34 20 34 30C34 36 30 40 24 43" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6"/>
+                            <circle cx="24" cy="8" r="2" fill="currentColor" opacity="0.4"/>
+                            <circle cx="16" cy="20" r="1.5" fill="currentColor" opacity="0.3"/>
+                            <circle cx="32" cy="20" r="1.5" fill="currentColor" opacity="0.3"/>
+                            <circle cx="12" cy="30" r="1.5" fill="currentColor" opacity="0.3"/>
+                            <circle cx="36" cy="30" r="1.5" fill="currentColor" opacity="0.3"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1 class="logo-title">Bryggepusten</h1>
+                        <p class="logo-subtitle">Hjemmebryggeriets Dagbok</p>
+                    </div>
+                </div>
+                <nav class="nav">
+                    <button class="nav-btn active" data-view="dashboard">
+                        <span class="nav-icon">◷</span>
+                        <span class="nav-label">Oversikt</span>
+                    </button>
+                    <button class="nav-btn" data-view="recipes">
+                        <span class="nav-icon">⚒</span>
+                        <span class="nav-label">Oppskrifter</span>
+                    </button>
+                    <button class="nav-btn" data-view="brews">
+                        <span class="nav-icon">🫧</span>
+                        <span class="nav-label">Brygg</span>
+                    </button>
+                    <button class="nav-btn" data-view="ingredients">
+                        <span class="nav-icon">🧶</span>
+                        <span class="nav-label">Ingredienser</span>
+                    </button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <div class="dashboard-hero">
+                    <div class="hero-content">
+                        <h2 class="hero-title">Din bryggehverdag</h2>
+                        <p class="hero-desc">Hold styr på dine hjemmebryggede øl, oppskrifter og fremgang.</p>
+                    </div>
+                </div>
+                <div class="stats-grid" id="stats-grid">
+                    <!-- Filled by JS -->
+                </div>
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h3>Aktive brygg</h3>
+                        <button class="btn btn-sm btn-ghost" onclick="app.showView('brews')">Se alle →</button>
+                    </div>
+                    <div class="card-grid" id="active-brews-grid">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h3>Siste oppskrifter</h3>
+                        <button class="btn btn-sm btn-ghost" onclick="app.showView('recipes')">Se alle →</button>
+                    </div>
+                    <div class="card-grid" id="recent-recipes-grid">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recipes View -->
+            <section id="view-recipes" class="view">
+                <div class="view-header">
+                    <h2>Oppskrifter</h2>
+                    <button class="btn btn-primary" onclick="app.openRecipeModal()">+ Ny oppskrift</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" class="search-input" id="recipe-search" placeholder="Søk i oppskrifter..." oninput="app.filterRecipes()">
+                    <div class="filter-chips" id="recipe-style-filters">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                <div class="recipe-list" id="recipe-list">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+
+            <!-- Brews View -->
+            <section id="view-brews" class="view">
+                <div class="view-header">
+                    <h2>Brygg</h2>
+                    <button class="btn btn-primary" onclick="app.openBrewModal()">+ Nytt brygg</button>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-chips" id="brew-status-filters">
+                        <button class="chip active" data-filter="all" onclick="app.filterBrews('all', this)">Alle</button>
+                        <button class="chip" data-filter="planning" onclick="app.filterBrews('planning', this)">Planlegging</button>
+                        <button class="chip" data-filter="brewing" onclick="app.filterBrews('brewing', this)">Brygging</button>
+                        <button class="chip" data-filter="fermenting" onclick="app.filterBrews('fermenting', this)">Gjæring</button>
+                        <button class="chip" data-filter="conditioning" onclick="app.filterBrews('conditioning', this)">Kondisjonering</button>
+                        <button class="chip" data-filter="bottled" onclick="app.filterBrews('bottled', this)">Tappet</button>
+                        <button class="chip" data-filter="drinking" onclick="app.filterBrews('drinking', this)">Drikkes</button>
+                    </div>
+                </div>
+                <div class="brew-timeline" id="brew-timeline">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+
+            <!-- Ingredients View -->
+            <section id="view-ingredients" class="view">
+                <div class="view-header">
+                    <h2>Ingredienser</h2>
+                    <button class="btn btn-primary" onclick="app.openIngredientModal()">+ Ny ingrediens</button>
+                </div>
+                <div class="ingredients-tabs">
+                    <button class="tab-btn active" data-tab="malts" onclick="app.switchIngredientTab('malts', this)">Malt</button>
+                    <button class="tab-btn" data-tab="hops" onclick="app.switchIngredientTab('hops', this)">Humle</button>
+                    <button class="tab-btn" data-tab="yeast" onclick="app.switchIngredientTab('yeast', this)">Gjær</button>
+                    <button class="tab-btn" data-tab="other" onclick="app.switchIngredientTab('other', this)">Annet</button>
+                </div>
+                <div class="ingredients-content" id="ingredients-content">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Recipe Modal -->
+    <div class="modal-overlay" id="recipe-modal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 id="recipe-modal-title">Ny oppskrift</h3>
+                <button class="modal-close" onclick="app.closeModal('recipe-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="recipe-form" onsubmit="app.saveRecipe(event)">
+                    <input type="hidden" id="recipe-id">
+                    <div class="form-grid">
+                        <div class="form-group form-span-2">
+                            <label for="recipe-name">Navn</label>
+                            <input type="text" id="recipe-name" required placeholder="f.eks. Høsthelge Pale Ale">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-style">Stil</label>
+                            <select id="recipe-style" required>
+                                <option value="">Velg stil...</option>
+                                <option value="Pale Ale">Pale Ale</option>
+                                <option value="IPA">IPA</option>
+                                <option value="Stout">Stout</option>
+                                <option value="Porter">Porter</option>
+                                <option value="Wheat">Hveteøl</option>
+                                <option value="Pilsner">Pilsner</option>
+                                <option value="Lager">Lager</option>
+                                <option value="Saison">Saison</option>
+                                <option value="Sour">Surøl</option>
+                                <option value="Barleywine">Barleywine</option>
+                                <option value="Belgian">Belgisk</option>
+                                <option value="Other">Annet</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-batch-size">Batstørrelse (L)</label>
+                            <input type="number" id="recipe-batch-size" value="20" step="0.5" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-og">OG</label>
+                            <input type="text" id="recipe-og" placeholder="f.eks. 1.050">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-fg">FG</label>
+                            <input type="text" id="recipe-fg" placeholder="f.eks. 1.010">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-ibu">IBU</label>
+                            <input type="number" id="recipe-ibu" placeholder="f.eks. 40" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-abv">ABV %</label>
+                            <input type="number" id="recipe-abv" step="0.1" placeholder="f.eks. 5.0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-srm">SRM / Farge</label>
+                            <input type="number" id="recipe-srm" placeholder="f.eks. 8" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-mash-temp">Mesktemp (°C)</label>
+                            <input type="number" id="recipe-mash-temp" placeholder="f.eks. 65" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-mash-time">Mesketid (min)</label>
+                            <input type="number" id="recipe-mash-time" placeholder="f.eks. 60" min="0">
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label for="recipe-boil-time">Koketid (min)</label>
+                            <input type="number" id="recipe-boil-time" value="60" min="0">
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label>Malter</label>
+                            <div class="ingredient-list" id="recipe-malts-list">
+                                <!-- Filled dynamically -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="app.addRecipeIngredientRow('malts')">+ Legg til malt</button>
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label>Humle</label>
+                            <div class="ingredient-list" id="recipe-hops-list">
+                                <!-- Filled dynamically -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="app.addRecipeIngredientRow('hops')">+ Legg til humle</button>
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label>Gjær</label>
+                            <div class="ingredient-list" id="recipe-yeast-list">
+                                <!-- Filled dynamically -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="app.addRecipeIngredientRow('yeast')">+ Legg til gjær</button>
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label for="recipe-notes">Notater</label>
+                            <textarea id="recipe-notes" rows="4" placeholder="Tips, erfaringer, smaksnotater..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-ghost" onclick="app.closeModal('recipe-modal')">Avbryt</button>
+                        <button type="submit" class="btn btn-primary">Lagre oppskrift</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brew Modal -->
+    <div class="modal-overlay" id="brew-modal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 id="brew-modal-title">Nytt brygg</h3>
+                <button class="modal-close" onclick="app.closeModal('brew-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="brew-form" onsubmit="app.saveBrew(event)">
+                    <input type="hidden" id="brew-id">
+                    <div class="form-grid">
+                        <div class="form-group form-span-2">
+                            <label for="brew-name">Bryggnavn</label>
+                            <input type="text" id="brew-name" required placeholder="f.eks. Brygg #7 — Vårbliss">
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-recipe">Oppskrift</label>
+                            <select id="brew-recipe">
+                                <option value="">Uten oppskrift</option>
+                                <!-- Filled by JS -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-status">Status</label>
+                            <select id="brew-status" required>
+                                <option value="planning">Planlegging</option>
+                                <option value="brewing">Brygging</option>
+                                <option value="fermenting">Gjæring</option>
+                                <option value="conditioning">Kondisjonering</option>
+                                <option value="bottled">Tappet</option>
+                                <option value="drinking">Drikkes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-date">Bryggedato</label>
+                            <input type="date" id="brew-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-og">Målt OG</label>
+                            <input type="text" id="brew-og" placeholder="f.eks. 1.048">
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-fg">Målt FG</label>
+                            <input type="text" id="brew-fg" placeholder="f.eks. 1.012">
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-volume">Volum (L)</label>
+                            <input type="number" id="brew-volume" step="0.1" min="0" placeholder="f.eks. 19">
+                        </div>
+                        <div class="form-group">
+                            <label for="brew-efficiency">Effektivitet %</label>
+                            <input type="number" id="brew-efficiency" step="1" min="0" max="100" placeholder="f.eks. 72">
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label for="brew-notes">Bryggenotater</label>
+                            <textarea id="brew-notes" rows="3" placeholder="Hvordan gikk bryggingen? Avvik?"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-ghost" onclick="app.closeModal('brew-modal')">Avbryt</button>
+                        <button type="submit" class="btn btn-primary">Lagre brygg</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brew Detail Modal -->
+    <div class="modal-overlay" id="brew-detail-modal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 id="brew-detail-title">Bryggdetaljer</h3>
+                <button class="modal-close" onclick="app.closeModal('brew-detail-modal')">✕</button>
+            </div>
+            <div class="modal-body" id="brew-detail-body">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Ingredient Modal -->
+    <div class="modal-overlay" id="ingredient-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="ingredient-modal-title">Ny ingrediens</h3>
+                <button class="modal-close" onclick="app.closeModal('ingredient-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="ingredient-form" onsubmit="app.saveIngredient(event)">
+                    <input type="hidden" id="ingredient-id">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ingredient-name">Navn</label>
+                            <input type="text" id="ingredient-name" required placeholder="f.eks. Maris Otter">
+                        </div>
+                        <div class="form-group">
+                            <label for="ingredient-type">Type</label>
+                            <select id="ingredient-type" required>
+                                <option value="malts">Malt</option>
+                                <option value="hops">Humle</option>
+                                <option value="yeast">Gjær</option>
+                                <option value="other">Annet</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ingredient-amount">Mengde</label>
+                            <input type="text" id="ingredient-amount" placeholder="f.eks. 5 kg / 25g / 1 pose">
+                        </div>
+                        <div class="form-group">
+                            <label for="ingredient-supplier">Leverandør</label>
+                            <input type="text" id="ingredient-supplier" placeholder="f.eks. Bryggeland">
+                        </div>
+                        <div class="form-group">
+                            <label for="ingredient-alpha">Alfa-syre % (humle)</label>
+                            <input type="number" id="ingredient-alpha" step="0.1" min="0" placeholder="f.eks. 12.5">
+                        </div>
+                        <div class="form-group">
+                            <label for="ingredient-color">EBC / Farge</label>
+                            <input type="number" id="ingredient-color" step="0.1" min="0" placeholder="f.eks. 5.0">
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label for="ingredient-notes">Notater</label>
+                            <textarea id="ingredient-notes" rows="2" placeholder="Egenskaper, bruksområde..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-ghost" onclick="app.closeModal('ingredient-modal')">Avbryt</button>
+                        <button type="submit" class="btn btn-primary">Lagre</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brew Log Entry Modal -->
+    <div class="modal-overlay" id="log-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Legg til loggpost</h3>
+                <button class="modal-close" onclick="app.closeModal('log-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="log-form" onsubmit="app.saveLogEntry(event)">
+                    <input type="hidden" id="log-brew-id">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="log-type">Type</label>
+                            <select id="log-type" required>
+                                <option value="mesking">Mesking</option>
+                                <option value="kok">Kok</option>
+                                <option value="humleting">Humletilsetting</option>
+                                <option value="kjøling">Kjøling</option>
+                                <option value="gjæring">Gjæring</option>
+                                <option value="tapping">Tapping</option>
+                                <option value="smaking">Smaking</option>
+                                <option value="måling">Måling</option>
+                                <option value="annen">Annet</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="log-date">Dato/Tid</label>
+                            <input type="datetime-local" id="log-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="log-gravity">Tyngde (OG/FG)</label>
+                            <input type="text" id="log-gravity" placeholder="f.eks. 1.050">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-temp">Temperatur °C</label>
+                            <input type="number" id="log-temp" step="0.1" placeholder="f.eks. 20.0">
+                        </div>
+                        <div class="form-group form-span-2">
+                            <label for="log-text">Beskrivelse</label>
+                            <textarea id="log-text" rows="3" required placeholder="Hva skjedde?"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-ghost" onclick="app.closeModal('log-modal')">Avbryt</button>
+                        <button type="submit" class="btn btn-primary">Lagre loggpost</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
