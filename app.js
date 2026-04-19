@@ -58,7 +58,6 @@ const app = {
         this.loadData();
         this.bindNavEvents();
         this.renderAll();
-        this.seedDemoDataIfEmpty();
         if (this.github.enabled) {
             this.pullFromGitHub();
         }
@@ -89,6 +88,12 @@ const app = {
     // ============================================
     loadData() {
         try {
+            const version = localStorage.getItem('bryggepusten-version');
+            if (version !== '2') {
+                // Clear old demo data from previous versions
+                localStorage.removeItem('bryggepusten-data');
+                localStorage.setItem('bryggepusten-version', '2');
+            }
             const saved = localStorage.getItem('bryggepusten-data');
             if (saved) {
                 this.data = JSON.parse(saved);
@@ -1189,156 +1194,6 @@ const app = {
         }, 3000);
     },
 
-    // ============================================
-    // DEMO DATA
-    // ============================================
-    seedDemoDataIfEmpty() {
-        if (this.data.recipes.length > 0 || this.data.brews.length > 0) return;
-
-        this.data.ingredients = [
-            { id: 'ing1', name: 'Maris Otter', type: 'malts', amount: '25 kg', supplier: 'Bryggeland', alpha: null, color: 5.5, notes: 'Basismalt, britisk' },
-            { id: 'ing2', name: 'Pilsnermalt', type: 'malts', amount: '20 kg', supplier: 'Bryggeland', alpha: null, color: 3.5, notes: 'Tysk basismalt' },
-            { id: 'ing3', name: 'Karamellmalt (C60)', type: 'malts', amount: '2 kg', supplier: 'Bryggeland', alpha: null, color: 60, notes: 'For fyle og sødme' },
-            { id: 'ing4', name: 'Chokeladmalt', type: 'malts', amount: '1 kg', supplier: 'Bryggeland', alpha: null, color: 400, notes: 'For mørke øl' },
-            { id: 'ing5', name: 'Centennial', type: 'hops', amount: '100g', supplier: 'YCH Hops', alpha: 10.5, color: null, notes: 'Citrus, blomster' },
-            { id: 'ing6', name: 'Cascade', type: 'hops', amount: '100g', supplier: 'YCH Hops', alpha: 7.0, color: null, notes: 'Klassisk amerikansk humle' },
-            { id: 'ing7', name: 'Hallertau Mittelfrüh', type: 'hops', amount: '50g', supplier: 'Hopsteiner', alpha: 4.0, color: null, notes: 'Tysk edelhumle' },
-            { id: 'ing8', name: 'US-05', type: 'yeast', amount: '2 poser', supplier: 'Fermentis', alpha: null, color: null, notes: 'Amerikansk alegjær, ren gjæring' },
-            { id: 'ing9', name: 'WLP001 California Ale', type: 'yeast', amount: '1 pakke', supplier: 'White Labs', alpha: null, color: null, notes: 'Klassisk ale-gjær' },
-        ];
-
-        this.data.recipes = [
-            {
-                id: 'rec1',
-                name: 'Fjordlys Pale Ale',
-                style: 'Pale Ale',
-                batchSize: 20,
-                og: '1.050',
-                fg: '1.012',
-                ibu: 35,
-                abv: 5.0,
-                srm: 7,
-                mashTemp: 65,
-                mashTime: 60,
-                boilTime: 60,
-                malts: [
-                    { name: 'Maris Otter', amount: '4 kg', color: '' },
-                    { name: 'Pilsnermalt', amount: '1.5 kg', color: '' },
-                    { name: 'Karamellmalt (C60)', amount: '0.3 kg', color: '' },
-                ],
-                hops: [
-                    { name: 'Centennial', amount: '15g', time: '60' },
-                    { name: 'Cascade', amount: '25g', time: '15' },
-                    { name: 'Cascade', amount: '30g', time: '5' },
-                ],
-                yeast: [{ name: 'US-05', amount: '1 pose' }],
-                notes: 'En frisk og fruktig pale ale med hint av citrus. Perfekt til sommeren!',
-                createdAt: '2025-12-01T10:00:00Z',
-                updatedAt: '2025-12-01T10:00:00Z',
-            },
-            {
-                id: 'rec2',
-                name: 'Mørkevinter Stout',
-                style: 'Stout',
-                batchSize: 20,
-                og: '1.065',
-                fg: '1.018',
-                ibu: 45,
-                abv: 6.2,
-                srm: 35,
-                mashTemp: 67,
-                mashTime: 60,
-                boilTime: 60,
-                malts: [
-                    { name: 'Maris Otter', amount: '5 kg', color: '' },
-                    { name: 'Karamellmalt (C60)', amount: '0.5 kg', color: '' },
-                    { name: 'Chokeladmalt', amount: '0.4 kg', color: '' },
-                ],
-                hops: [
-                    { name: 'Centennial', amount: '25g', time: '60' },
-                    { name: 'Hallertau Mittelfrüh', amount: '15g', time: '15' },
-                ],
-                yeast: [{ name: 'US-05', amount: '1 pose' }],
-                notes: 'Rik og kompleks stout med toner av kaffe og sjokolade. God til vinteren!',
-                createdAt: '2026-01-15T10:00:00Z',
-                updatedAt: '2026-01-15T10:00:00Z',
-            },
-            {
-                id: 'rec3',
-                name: 'Hagehøst Saison',
-                style: 'Saison',
-                batchSize: 20,
-                og: '1.055',
-                fg: '1.008',
-                ibu: 28,
-                abv: 6.2,
-                srm: 5,
-                mashTemp: 63,
-                mashTime: 45,
-                boilTime: 60,
-                malts: [
-                    { name: 'Pilsnermalt', amount: '4 kg', color: '' },
-                    { name: 'Hvetemalt', amount: '1 kg', color: '' },
-                ],
-                hops: [
-                    { name: 'Hallertau Mittelfrüh', amount: '20g', time: '60' },
-                    { name: 'Cascade', amount: '15g', time: '5' },
-                ],
-                yeast: [{ name: 'WLP001 California Ale', amount: '1 pakke' }],
-                notes: 'Tørr og krydret saison – prøv med appelsinskall og koriander i koken!',
-                createdAt: '2026-03-01T10:00:00Z',
-                updatedAt: '2026-03-01T10:00:00Z',
-            },
-        ];
-
-        this.data.brews = [
-            {
-                id: 'brew1',
-                name: 'Brygg #1 — Fjordlys v1',
-                recipeId: 'rec1',
-                status: 'drinking',
-                date: '2025-12-15',
-                og: '1.051',
-                fg: '1.013',
-                volume: 19.5,
-                efficiency: 72,
-                notes: 'Litt lavere volum enn forventet, men god smak!',
-                log: [
-                    { id: 'l1', type: 'mesking', date: '2025-12-15T10:00:00', gravity: '', temp: 65, text: 'Mesket ved 65°C i 60 min. Alt gikk bra.' },
-                    { id: 'l2', type: 'kok', date: '2025-12-15T11:15:00', gravity: '', temp: 100, text: 'Kok opp, startet kokeur.' },
-                    { id: 'l3', type: 'humleting', date: '2025-12-15T11:15:00', gravity: '', temp: null, text: 'Centennial 15g ved kokstart.' },
-                    { id: 'l4', type: 'kjøling', date: '2025-12-15T12:15:00', gravity: '', temp: 20, text: 'Kjølt ned til 20°C med motstrømskjøler.' },
-                    { id: 'l5', type: 'gjæring', date: '2025-12-15T12:30:00', gravity: '1.051', temp: 20, text: 'Tappet over til gjæringstank. Målt OG: 1.051.' },
-                    { id: 'l6', type: 'måling', date: '2025-12-28T10:00:00', gravity: '1.013', temp: 18, text: 'Slutt-tyngde: 1.013. Gjæring ferdig.' },
-                    { id: 'l7', type: 'tapping', date: '2026-01-05T11:00:00', gravity: '', temp: null, text: 'Tappet på flasker med primingssukker.' },
-                ],
-                createdAt: '2025-12-15T09:00:00Z',
-                updatedAt: '2026-01-05T11:00:00Z',
-            },
-            {
-                id: 'brew2',
-                name: 'Brygg #2 — Mørkevinter',
-                recipeId: 'rec2',
-                status: 'fermenting',
-                date: '2026-04-10',
-                og: '1.063',
-                fg: '',
-                volume: 20,
-                efficiency: 68,
-                notes: 'Litt lavere effektivitet. Økte mesketiden neste gang.',
-                log: [
-                    { id: 'l8', type: 'mesking', date: '2026-04-10T09:30:00', gravity: '', temp: 67, text: 'Mesket ved 67°C i 60 min.' },
-                    { id: 'l9', type: 'kjøling', date: '2026-04-10T11:30:00', gravity: '', temp: 19, text: 'Kjølt til 19°C.' },
-                    { id: 'l10', type: 'gjæring', date: '2026-04-10T11:45:00', gravity: '1.063', temp: 19, text: 'OG: 1.063. Gjær pitches ved 19°C.' },
-                ],
-                createdAt: '2026-04-10T09:00:00Z',
-                updatedAt: '2026-04-10T11:45:00Z',
-            },
-        ];
-
-        this.saveData();
-        this.renderAll();
-    },
 };
 
 // ============================================
