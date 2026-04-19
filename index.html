@@ -51,7 +51,12 @@
                         <span class="nav-icon">🧶</span>
                         <span class="nav-label">Ingredienser</span>
                     </button>
+                    <button class="nav-btn" data-view="settings">
+                        <span class="nav-icon">⚙</span>
+                        <span class="nav-label">Innstillinger</span>
+                    </button>
                 </nav>
+                <div class="sync-indicator idle" id="sync-indicator" title="Lagringsmodus: Lokal"></div>
             </div>
         </header>
 
@@ -140,6 +145,16 @@
                     <button class="tab-btn" data-tab="other" onclick="app.switchIngredientTab('other', this)">Annet</button>
                 </div>
                 <div class="ingredients-content" id="ingredients-content">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="view-settings" class="view">
+                <div class="view-header">
+                    <h2>Innstillinger</h2>
+                </div>
+                <div id="settings-content">
                     <!-- Filled by JS -->
                 </div>
             </section>

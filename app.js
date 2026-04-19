@@ -1,6 +1,6 @@
 /* ============================================
    BRYGGEPUSTEN — Home Brew Tracker App
-   All data stored in localStorage
+   GitHub Contents API as backend for persistence
    ============================================ */
 
 const app = {
@@ -8,6 +8,17 @@ const app = {
         recipes: [],
         brews: [],
         ingredients: [],
+    },
+
+    // GitHub backend config
+    github: {
+        owner: 'Uhrenn',
+        repo: 'bryggepusten',
+        branch: 'main',
+        token: null,
+        enabled: false,
+        syncing: false,
+        lastSync: null,
     },
 
     // Current state
@@ -43,28 +54,215 @@ const app = {
     // INIT
     // ============================================
     init() {
+        this.loadConfig();
         this.loadData();
         this.bindNavEvents();
         this.renderAll();
         this.seedDemoDataIfEmpty();
+        if (this.github.enabled) {
+            this.pullFromGitHub();
+        }
     },
 
+    // ============================================
+    // CONFIG (GitHub token etc.)
+    // ============================================
+    loadConfig() {
+        try {
+            const cfg = localStorage.getItem('bryggepusten-config');
+            if (cfg) {
+                const parsed = JSON.parse(cfg);
+                this.github.token = parsed.token || null;
+                this.github.enabled = !!parsed.token;
+            }
+        } catch (e) { /* ignore */ }
+    },
+
+    saveConfig() {
+        localStorage.setItem('bryggepusten-config', JSON.stringify({
+            token: this.github.token,
+        }));
+    },
+
+    // ============================================
+    // DATA (localStorage as cache + GitHub as truth)
+    // ============================================
     loadData() {
         try {
             const saved = localStorage.getItem('bryggepusten-data');
             if (saved) {
                 this.data = JSON.parse(saved);
             }
-        } catch (e) {
-            console.error('Failed to load data:', e);
-        }
+        } catch (e) { /* ignore */ }
     },
 
     saveData() {
         try {
             localStorage.setItem('bryggepusten-data', JSON.stringify(this.data));
+        } catch (e) { /* ignore */ }
+
+        // Push to GitHub if enabled
+        if (this.github.enabled && !this.github.syncing) {
+            this.pushToGitHub();
+        }
+    },
+
+    // ============================================
+    // GITHUB CONTENTS API
+    // ============================================
+    async githubAPI(path, method = 'GET', body = null) {
+        if (!this.github.token) throw new Error('Ingen GitHub-token konfigurert');
+
+        const url = `https://api.github.com/repos/${this.github.owner}/${this.github.repo}/contents/${path}`;
+        const headers = {
+            'Authorization': `Bearer ${this.github.token}`,
+            'Accept': 'application/vnd.github.v3+json',
+        };
+
+        const opts = { method, headers };
+        if (body) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+
+        const resp = await fetch(url, opts);
+
+        if (resp.status === 401 || resp.status === 403) {
+            this.toast('GitHub-token er ugyldig eller utløpt. Gå til Innstillinger.', 'error');
+            this.github.enabled = false;
+            throw new Error('Auth failed');
+        }
+
+        if (!resp.ok && resp.status !== 404) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.message || `GitHub API feil: ${resp.status}`);
+        }
+
+        return resp;
+    },
+
+    async getFileSHA(path) {
+        try {
+            const resp = await this.githubAPI(path);
+            if (resp.status === 404) return null;
+            const data = await resp.json();
+            return data.sha;
         } catch (e) {
-            console.error('Failed to save data:', e);
+            return null;
+        }
+    },
+
+    async pushToGitHub() {
+        if (this.github.syncing) return;
+        this.github.syncing = true;
+        this.updateSyncIndicator('syncing');
+
+        try {
+            const files = {
+                'data/recipes.json': this.data.recipes,
+                'data/brews.json': this.data.brews,
+                'data/ingredients.json': this.data.ingredients,
+            };
+
+            for (const [path, content] of Object.entries(files)) {
+                const sha = await this.getFileSHA(path);
+                const body = {
+                    message: `oppdaterer ${path.split('/').pop()} — ${new Date().toLocaleString('nb-NO')}`,
+                    content: btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2)))),
+                    branch: this.github.branch,
+                };
+                if (sha) body.sha = sha;
+
+                await this.githubAPI(path, 'PUT', body);
+            }
+
+            this.github.lastSync = new Date().toISOString();
+            this.updateSyncIndicator('synced');
+        } catch (e) {
+            console.error('Push to GitHub failed:', e);
+            this.updateSyncIndicator('error');
+        } finally {
+            this.github.syncing = false;
+        }
+    },
+
+    async pullFromGitHub() {
+        if (this.github.syncing) return;
+        this.github.syncing = true;
+        this.updateSyncIndicator('syncing');
+
+        try {
+            const files = {
+                'data/recipes.json': 'recipes',
+                'data/brews.json': 'brews',
+                'data/ingredients.json': 'ingredients',
+            };
+
+            let changed = false;
+
+            for (const [path, key] of Object.entries(files)) {
+                try {
+                    const resp = await this.githubAPI(path);
+                    if (resp.status === 404) continue;
+                    const data = await resp.json();
+                    const content = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+
+                    // Merge: GitHub is truth, but keep local items that don't exist remotely
+                    if (Array.isArray(content)) {
+                        const localIds = new Set(this.data[key].map(i => i.id));
+                        const remoteIds = new Set(content.map(i => i.id));
+                        // Use remote as base, add any local-only items
+                        const merged = [...content];
+                        for (const item of this.data[key]) {
+                            if (!remoteIds.has(item.id)) {
+                                merged.push(item);
+                            }
+                        }
+                        this.data[key] = merged;
+                        changed = true;
+                    }
+                } catch (e) {
+                    console.warn(`Could not pull ${path}:`, e);
+                }
+            }
+
+            if (changed) {
+                localStorage.setItem('bryggepusten-data', JSON.stringify(this.data));
+                this.renderAll();
+            }
+
+            this.github.lastSync = new Date().toISOString();
+            this.updateSyncIndicator('synced');
+            this.toast('Data synkronisert fra GitHub', 'success');
+        } catch (e) {
+            console.error('Pull from GitHub failed:', e);
+            this.updateSyncIndicator('error');
+        } finally {
+            this.github.syncing = false;
+        }
+    },
+
+    updateSyncIndicator(state) {
+        const el = document.getElementById('sync-indicator');
+        if (!el) return;
+
+        switch (state) {
+            case 'syncing':
+                el.className = 'sync-indicator syncing';
+                el.title = 'Synkroniserer...';
+                break;
+            case 'synced':
+                el.className = 'sync-indicator synced';
+                el.title = 'Synkronisert';
+                setTimeout(() => { el.className = 'sync-indicator idle'; }, 3000);
+                break;
+            case 'error':
+                el.className = 'sync-indicator error';
+                el.title = 'Synk feilet';
+                break;
+            default:
+                el.className = 'sync-indicator idle';
+                el.title = this.github.enabled ? 'Koblet til GitHub' : 'Lagringsmodus: Lokal';
         }
     },
 
@@ -83,12 +281,10 @@ const app = {
     showView(viewName) {
         this.currentView = viewName;
 
-        // Update nav
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.view === viewName);
         });
 
-        // Show/hide views
         document.querySelectorAll('.view').forEach(v => {
             v.classList.toggle('active', v.id === `view-${viewName}`);
         });
@@ -105,6 +301,7 @@ const app = {
             case 'recipes': this.renderRecipes(); break;
             case 'brews': this.renderBrews(); break;
             case 'ingredients': this.renderIngredients(); break;
+            case 'settings': this.renderSettings(); break;
         }
     },
 
@@ -116,7 +313,6 @@ const app = {
         const drinkingBrews = this.data.brews.filter(b => b.status === 'drinking');
         const totalIngredients = this.data.ingredients.length;
 
-        // Stats
         const statsGrid = document.getElementById('stats-grid');
         statsGrid.innerHTML = `
             <div class="stat-card">
@@ -141,7 +337,6 @@ const app = {
             </div>
         `;
 
-        // Active brews
         const activeGrid = document.getElementById('active-brews-grid');
         if (activeBrews.length === 0) {
             activeGrid.innerHTML = `
@@ -154,7 +349,6 @@ const app = {
             activeGrid.innerHTML = activeBrews.slice(0, 4).map(b => this.brewCardHTML(b)).join('');
         }
 
-        // Recent recipes
         const recipeGrid = document.getElementById('recent-recipes-grid');
         const recentRecipes = [...this.data.recipes].reverse().slice(0, 4);
         if (recentRecipes.length === 0) {
@@ -369,6 +563,157 @@ const app = {
             </table>`;
     },
 
+    // -- Settings --
+    renderSettings() {
+        const container = document.getElementById('settings-content');
+        const gh = this.github;
+
+        container.innerHTML = `
+            <div class="settings-section">
+                <h3 class="settings-title">☁️ GitHub-synkronisering</h3>
+                <p class="settings-desc">
+                    Lagre dataene dine i GitHub-repositoriet. Da har du alltid sikker kopi,
+                    versjonshistorikk, og tilgang fra flere enheter.
+                </p>
+
+                <div class="form-grid" style="margin-top:1rem">
+                    <div class="form-group form-span-2">
+                        <label for="gh-token">GitHub Personal Access Token (PAT)</label>
+                        <input type="password" id="gh-token" value="${gh.token ? '••••••••••••' : ''}"
+                            placeholder="ghp_xxxxxxxxxxxx"
+                            onfocus="if(this.value.startsWith('••')) this.value=''"
+                            class="mono">
+                        <small class="form-hint">
+                            Opprett en <strong>fine-grained PAT</strong> med <strong>Contents: Read & Write</strong>
+                            for kun repositoriet <code>Uhrenn/bryggepusten</code>.<br>
+                            👉 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Opprett PAT her</a>
+                        </small>
+                    </div>
+                </div>
+
+                <div class="settings-status">
+                    <span class="sync-indicator ${gh.enabled ? 'synced' : 'idle'}"></span>
+                    <span>
+                        ${gh.enabled
+                            ? `Koblet til — siste synk: ${gh.lastSync ? this.formatDateTime(gh.lastSync) : 'aldri'}`
+                            : 'Lagringsmodus: Lokal (data lagres kun i denne nettleseren)'}
+                    </span>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn btn-primary" onclick="app.saveGitHubConfig()">Lagre token</button>
+                    ${gh.enabled ? `<button class="btn btn-ghost" onclick="app.pullFromGitHub()">⟳ Hent fra GitHub</button>` : ''}
+                    ${gh.token ? `<button class="btn btn-danger" onclick="app.disconnectGitHub()">Koble fra</button>` : ''}
+                </div>
+            </div>
+
+            <div class="settings-divider"></div>
+
+            <div class="settings-section">
+                <h3 class="settings-title">💾 Lokal data</h3>
+                <p class="settings-desc">Eksporter eller importer alle dataene dine som en JSON-fil.</p>
+                <div class="settings-actions">
+                    <button class="btn btn-ghost" onclick="app.exportData()">⬇ Eksporter data</button>
+                    <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">⬆ Importer data</button>
+                    <input type="file" id="import-file" accept=".json" style="display:none" onchange="app.importData(event)">
+                </div>
+            </div>
+
+            <div class="settings-divider"></div>
+
+            <div class="settings-section">
+                <h3 class="settings-title">🗑 Slett alt</h3>
+                <p class="settings-desc">Slett alle lokale data og start med blank tavle.</p>
+                <div class="settings-actions">
+                    <button class="btn btn-danger" onclick="app.resetAllData()">Tilbakestill alt</button>
+                </div>
+            </div>
+        `;
+    },
+
+    saveGitHubConfig() {
+        const input = document.getElementById('gh-token');
+        const token = input.value.trim();
+
+        if (!token || token.startsWith('••')) {
+            this.toast('Skriv inn en gyldig GitHub PAT', 'error');
+            return;
+        }
+
+        // Validate token by trying an API call
+        this.github.token = token;
+        this.githubAPI('data/recipes.json')
+            .then(resp => {
+                this.github.enabled = true;
+                this.saveConfig();
+                this.renderSettings();
+                this.toast('GitHub koblet til! Data synkroniseres automatisk.', 'success');
+                this.pushToGitHub();
+            })
+            .catch(e => {
+                this.github.token = null;
+                this.github.enabled = false;
+                this.toast('Kunne ikke koble til GitHub. Sjekk token-et.', 'error');
+            });
+    },
+
+    disconnectGitHub() {
+        this.github.token = null;
+        this.github.enabled = false;
+        this.github.lastSync = null;
+        this.saveConfig();
+        this.renderSettings();
+        this.updateSyncIndicator('idle');
+        this.toast('Koblet fra GitHub. Data lagres nå lokalt.', 'info');
+    },
+
+    exportData() {
+        const dataStr = JSON.stringify(this.data, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bryggepusten-export-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.toast('Data eksportert!', 'success');
+    },
+
+    importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (imported.recipes && imported.brews && imported.ingredients) {
+                    this.data = imported;
+                    this.saveData();
+                    this.renderAll();
+                    this.toast('Data importert!', 'success');
+                } else {
+                    this.toast('Ugyldig filformat', 'error');
+                }
+            } catch (err) {
+                this.toast('Kunne ikke lese filen', 'error');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    },
+
+    resetAllData() {
+        if (!confirm('Er du sikker? Alle data slettes permanent fra denne nettleseren.')) return;
+        if (!confirm('Virkelig slett ALT? Dette kan ikke angres!')) return;
+
+        this.data = { recipes: [], brews: [], ingredients: [] };
+        this.saveData();
+        this.renderAll();
+        this.showView('dashboard');
+        this.toast('Alle data slettet', 'info');
+    },
+
     // ============================================
     // RECIPE CRUD
     // ============================================
@@ -401,7 +746,6 @@ const app = {
                 document.getElementById('recipe-boil-time').value = recipe.boilTime || 60;
                 document.getElementById('recipe-notes').value = recipe.notes || '';
 
-                // Populate ingredients
                 (recipe.malts || []).forEach(m => this.addRecipeIngredientRow('malts', m));
                 (recipe.hops || []).forEach(h => this.addRecipeIngredientRow('hops', h));
                 (recipe.yeast || []).forEach(y => this.addRecipeIngredientRow('yeast', y));
@@ -418,7 +762,6 @@ const app = {
         const list = document.getElementById(listId);
         const row = document.createElement('div');
         row.className = 'ingredient-row';
-        const id = `ing-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
 
         if (type === 'yeast') {
             row.innerHTML = `
@@ -522,12 +865,10 @@ const app = {
         form.reset();
         document.getElementById('brew-id').value = '';
 
-        // Populate recipe dropdown
         const recipeSelect = document.getElementById('brew-recipe');
         recipeSelect.innerHTML = `<option value="">Uten oppskrift</option>` +
             this.data.recipes.map(r => `<option value="${r.id}">${this.esc(r.name)}</option>`).join('');
 
-        // Set default date to today
         document.getElementById('brew-date').value = new Date().toISOString().split('T')[0];
 
         if (brewId) {
@@ -547,7 +888,6 @@ const app = {
             }
         } else {
             title.textContent = 'Nytt brygg';
-            // Suggest brew number
             const nextNum = this.data.brews.length + 1;
             document.getElementById('brew-name').value = `Brygg #${nextNum}`;
         }
@@ -610,7 +950,6 @@ const app = {
 
         title.textContent = brew.name;
 
-        // Calculate ABV if OG and FG are available
         let calculatedABV = null;
         if (brew.og && brew.fg) {
             const og = parseFloat(brew.og);
@@ -733,8 +1072,6 @@ const app = {
 
         form.reset();
         document.getElementById('ingredient-id').value = '';
-
-        // Set current tab as default type
         document.getElementById('ingredient-type').value = this.currentIngredientTab;
 
         if (ingredientId) {
@@ -805,13 +1142,6 @@ const app = {
         document.getElementById(modalId).classList.remove('active');
     },
 
-    // Close modal on overlay click
-    handleModalOverlayClick(e, modalId) {
-        if (e.target.id === modalId) {
-            this.closeModal(modalId);
-        }
-    },
-
     // ============================================
     // UTILITIES
     // ============================================
@@ -865,7 +1195,6 @@ const app = {
     seedDemoDataIfEmpty() {
         if (this.data.recipes.length > 0 || this.data.brews.length > 0) return;
 
-        // Add sample ingredients
         this.data.ingredients = [
             { id: 'ing1', name: 'Maris Otter', type: 'malts', amount: '25 kg', supplier: 'Bryggeland', alpha: null, color: 5.5, notes: 'Basismalt, britisk' },
             { id: 'ing2', name: 'Pilsnermalt', type: 'malts', amount: '20 kg', supplier: 'Bryggeland', alpha: null, color: 3.5, notes: 'Tysk basismalt' },
@@ -878,7 +1207,6 @@ const app = {
             { id: 'ing9', name: 'WLP001 California Ale', type: 'yeast', amount: '1 pakke', supplier: 'White Labs', alpha: null, color: null, notes: 'Klassisk ale-gjær' },
         ];
 
-        // Add sample recipes
         this.data.recipes = [
             {
                 id: 'rec1',
@@ -903,9 +1231,7 @@ const app = {
                     { name: 'Cascade', amount: '25g', time: '15' },
                     { name: 'Cascade', amount: '30g', time: '5' },
                 ],
-                yeast: [
-                    { name: 'US-05', amount: '1 pose' },
-                ],
+                yeast: [{ name: 'US-05', amount: '1 pose' }],
                 notes: 'En frisk og fruktig pale ale med hint av citrus. Perfekt til sommeren!',
                 createdAt: '2025-12-01T10:00:00Z',
                 updatedAt: '2025-12-01T10:00:00Z',
@@ -932,9 +1258,7 @@ const app = {
                     { name: 'Centennial', amount: '25g', time: '60' },
                     { name: 'Hallertau Mittelfrüh', amount: '15g', time: '15' },
                 ],
-                yeast: [
-                    { name: 'US-05', amount: '1 pose' },
-                ],
+                yeast: [{ name: 'US-05', amount: '1 pose' }],
                 notes: 'Rik og kompleks stout med toner av kaffe og sjokolade. God til vinteren!',
                 createdAt: '2026-01-15T10:00:00Z',
                 updatedAt: '2026-01-15T10:00:00Z',
@@ -960,16 +1284,13 @@ const app = {
                     { name: 'Hallertau Mittelfrüh', amount: '20g', time: '60' },
                     { name: 'Cascade', amount: '15g', time: '5' },
                 ],
-                yeast: [
-                    { name: 'WLP001 California Ale', amount: '1 pakke' },
-                ],
+                yeast: [{ name: 'WLP001 California Ale', amount: '1 pakke' }],
                 notes: 'Tørr og krydret saison – prøv med appelsinskall og koriander i koken!',
                 createdAt: '2026-03-01T10:00:00Z',
                 updatedAt: '2026-03-01T10:00:00Z',
             },
         ];
 
-        // Add sample brews
         this.data.brews = [
             {
                 id: 'brew1',
@@ -1026,7 +1347,6 @@ const app = {
 document.addEventListener('DOMContentLoaded', () => {
     app.init();
 
-    // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
@@ -1035,7 +1355,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Close modals on Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
